@@ -78,7 +78,13 @@ def send_telegram(message):
         timeout=20
     )
 
-    response.raise_for_status()
+    if not response.ok:
+        logging.error(
+            "Telegram error %s: %s",
+            response.status_code,
+            response.text
+        )
+        return None
 
     return response.json()
 
