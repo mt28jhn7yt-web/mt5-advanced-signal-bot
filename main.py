@@ -39,7 +39,7 @@ ATR_TP_MULTIPLIER = float(
     os.getenv("ATR_TP_MULTIPLIER", "2.5")
 )
 
-LOOKBACK = int(os.getenv("LOOKBACK", "150"))
+LOOKBACK = int(os.getenv("LOOKBACK", "100"))
 
 session = requests.Session()
 session.headers.update({
