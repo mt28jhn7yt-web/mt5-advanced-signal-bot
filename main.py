@@ -106,18 +106,13 @@ def get_candles(symbol, interval):
 
     for attempt in range(max_retries):
 
-        # Rate limiting: enforce minimum delay between API requests
-        time_since_last_request = time.time() - LAST_API_REQUEST
-        if time_since_last_request < API_REQUEST_DELAY:
-            wait_time = API_REQUEST_DELAY - time_since_last_request
-            logging.info(
-                f"Rate limiting: waiting {wait_time:.1f}s before {symbol} {interval} request"
-            )
-            time.sleep(wait_time)
+        # Slow down requests to respect Twelve Data limits
+        elapsed = time.time() - LAST_API_REQUEST
+
+        if elapsed < API_REQUEST_DELAY:
+            time.sleep(API_REQUEST_DELAY - elapsed)
 
         try:
-
-            LAST_API_REQUEST = time.time()
 
             response = session.get(
                 url,
@@ -125,7 +120,8 @@ def get_candles(symbol, interval):
                 timeout=20
             )
 
-            # Twelve Data rate limit
+            LAST_API_REQUEST = time.time()
+
             if response.status_code == 429:
 
                 wait_seconds = 60 * (attempt + 1)
@@ -154,9 +150,6 @@ def get_candles(symbol, interval):
 
             candles = []
 
-            # Twelve Data normally returns newest first.
-            # Reverse so calculations run oldest -> newest.
-
             for item in reversed(data["values"]):
 
                 candles.append({
@@ -169,7 +162,7 @@ def get_candles(symbol, interval):
 
             return candles
 
-        except requests.RequestException as e:
+        except requests.RequestException as error:
 
             if attempt == max_retries - 1:
                 raise
@@ -178,7 +171,7 @@ def get_candles(symbol, interval):
 
             logging.warning(
                 f"Request error for {symbol} {interval}: "
-                f"{e}. Retrying in {wait_seconds}s..."
+                f"{error}. Retrying in {wait_seconds}s..."
             )
 
             time.sleep(wait_seconds)
