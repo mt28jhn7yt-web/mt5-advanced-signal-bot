@@ -14,7 +14,16 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(message)s"
 )
 
-# ---------------- CONFIG ----------------
+# ============================================================
+# RATE LIMITING
+# ============================================================
+
+LAST_API_REQUEST = 0
+API_REQUEST_DELAY = 10  # Seconds between API requests to Twelve Data
+
+# ============================================================
+# CONFIG
+# ============================================================
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
@@ -80,6 +89,8 @@ def send_telegram(message):
 
 def get_candles(symbol, interval):
 
+    global LAST_API_REQUEST
+
     url = "https://api.twelvedata.com/time_series"
 
     params = {
@@ -95,7 +106,18 @@ def get_candles(symbol, interval):
 
     for attempt in range(max_retries):
 
+        # Rate limiting: enforce minimum delay between API requests
+        time_since_last_request = time.time() - LAST_API_REQUEST
+        if time_since_last_request < API_REQUEST_DELAY:
+            wait_time = API_REQUEST_DELAY - time_since_last_request
+            logging.info(
+                f"Rate limiting: waiting {wait_time:.1f}s before {symbol} {interval} request"
+            )
+            time.sleep(wait_time)
+
         try:
+
+            LAST_API_REQUEST = time.time()
 
             response = session.get(
                 url,
