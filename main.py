@@ -1153,6 +1153,27 @@ def main():
         MIN_SCORE
     )
 
+    # Telegram connection test
+    try:
+
+        send_telegram(
+            "🟢 Forex V2 Signal Bot Online\n\n"
+            "MT5 Signal Engine connected successfully.\n"
+            "Signal-only mode: ACTIVE\n"
+            "Automatic trading: OFF"
+        )
+
+        logging.info(
+            "Telegram test message sent successfully."
+        )
+
+    except Exception as error:
+
+        logging.exception(
+            "Telegram test failed: %s",
+            error
+        )
+
     while True:
 
         for symbol in SYMBOLS:
