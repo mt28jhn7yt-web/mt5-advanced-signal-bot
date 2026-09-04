@@ -91,41 +91,79 @@ def get_candles(symbol, interval):
         "timezone": "UTC"
     }
 
-    response = session.get(
-        url,
-        params=params,
-        timeout=20
-    )
+    max_retries = 3
 
-    response.raise_for_status()
+    for attempt in range(max_retries):
 
-    data = response.json()
+        try:
 
-    if "values" not in data:
-
-        raise RuntimeError(
-            data.get(
-                "message",
-                f"No data returned for {symbol}"
+            response = session.get(
+                url,
+                params=params,
+                timeout=20
             )
-        )
 
-    candles = []
+            # Twelve Data rate limit
+            if response.status_code == 429:
 
-    # Twelve Data normally returns newest first.
-    # Reverse so calculations run oldest -> newest.
+                wait_seconds = 60 * (attempt + 1)
 
-    for item in reversed(data["values"]):
+                logging.warning(
+                    f"Twelve Data rate limit for "
+                    f"{symbol} {interval}. "
+                    f"Waiting {wait_seconds}s..."
+                )
 
-        candles.append({
-            "time": item["datetime"],
-            "open": float(item["open"]),
-            "high": float(item["high"]),
-            "low": float(item["low"]),
-            "close": float(item["close"])
-        })
+                time.sleep(wait_seconds)
+                continue
 
-    return candles
+            response.raise_for_status()
+
+            data = response.json()
+
+            if "values" not in data:
+
+                raise RuntimeError(
+                    data.get(
+                        "message",
+                        f"No data returned for {symbol}"
+                    )
+                )
+
+            candles = []
+
+            # Twelve Data normally returns newest first.
+            # Reverse so calculations run oldest -> newest.
+
+            for item in reversed(data["values"]):
+
+                candles.append({
+                    "time": item["datetime"],
+                    "open": float(item["open"]),
+                    "high": float(item["high"]),
+                    "low": float(item["low"]),
+                    "close": float(item["close"])
+                })
+
+            return candles
+
+        except requests.RequestException as e:
+
+            if attempt == max_retries - 1:
+                raise
+
+            wait_seconds = 30 * (attempt + 1)
+
+            logging.warning(
+                f"Request error for {symbol} {interval}: "
+                f"{e}. Retrying in {wait_seconds}s..."
+            )
+
+            time.sleep(wait_seconds)
+
+    raise RuntimeError(
+        f"Unable to retrieve candles for {symbol} {interval}"
+    )
 
 
 # ============================================================
